@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>マイ音楽リンク帳</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen antialiased selection:bg-indigo-500 selection:text-white">
+  <div class="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+
+    <!-- ヘッダー（タイトルとバックアップ操作を整理） -->
+    <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-6 mb-6 border-b border-slate-800/80">
+      <div class="flex items-center gap-3.5">
+        <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/25 shrink-0">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2.5">
+            <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-white">マイ音楽リンク帳</h1>
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+              <span id="countBadge">0</span> 曲
+            </span>
+          </div>
+          <p class="text-xs sm:text-sm text-slate-400 mt-0.5">音楽リンクや音声ファイルをまとめて保存・再生</p>
+        </div>
+      </div>
+
+      <!-- データ管理ボタン（アイコン付きでコンパクトに配置） -->
+      <div class="flex items-center gap-2 self-start sm:self-center">
+        <button
+          id="exportBtn"
+          type="button"
+          class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-xs font-medium text-slate-300 transition flex items-center gap-1.5"
+          title="リストをJSONファイルとして保存"
+        >
+          <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          <span>書き出し</span>
+        </button>
+        <button
+          id="importBtn"
+          type="button"
+          class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-xs font-medium text-slate-300 transition flex items-center gap-1.5"
+          title="JSONファイルからリストを復元"
+        >
+          <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+          </svg>
+          <span>読み込み</span>
+        </button>
+        <input id="importFileInput" type="file" accept=".json,application/json" class="hidden" />
+      </div>
+    </header>
+
+    <!-- 通知メッセージボックス（alertの代わり） -->
+    <div id="toast" class="hidden fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium transition-all duration-300"></div>
+
+    <!-- 入力フォームカード -->
+    <section class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl mb-6">
+      <!-- 登録モード切替タブ（SVGアイコンで統一） -->
+      <div class="grid grid-cols-2 gap-1.5 p-1 bg-slate-950 rounded-xl border border-slate-800 mb-5">
+        <button
+          id="tabUrlBtn"
+          type="button"
+          class="py-2.5 px-3 rounded-lg text-xs sm:text-sm font-medium bg-indigo-600 text-white shadow-sm transition flex items-center justify-center gap-2"
+        >
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+          </svg>
+          <span>URLリンクを保存</span>
+        </button>
+        <button
+          id="tabFileBtn"
+          type="button"
+          class="py-2.5 px-3 rounded-lg text-xs sm:text-sm font-medium text-slate-400 hover:text-white transition flex items-center justify-center gap-2"
+        >
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span>音声ファイルを保存</span>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <!-- URL入力パネル -->
+        <div id="urlPanel">
+          <label for="urlInput" class="block text-xs font-medium text-slate-400 mb-1.5">音楽のURL（YouTube / Spotify / SoundCloud / mp3）</label>
+          <div class="flex flex-col sm:flex-row gap-2">
+            <div class="relative flex-1">
+              <svg class="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+              </svg>
+              <input
+                id="urlInput"
+                type="url"
+                placeholder="https://www.youtube.com/watch?v=..."
+                class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+              />
+            </div>
+            <button
+              id="pasteBtn"
+              type="button"
+              class="px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-[0.99] text-slate-200 text-sm font-medium border border-slate-700 transition flex items-center justify-center gap-1.5 shrink-0"
+              title="クリップボードから貼り付け"
+            >
+              <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              <span>貼り付け</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- ローカル音声ファイル選択パネル -->
+        <div id="filePanel" class="hidden">
+          <label class="block text-xs font-medium text-slate-400 mb-1.5">端末の音楽ファイル（MP3 / WAV / M4A / OGG）</label>
+          <label
+            for="audioFileInput"
+            class="flex items-center gap-4 w-full p-4 bg-slate-950 border-2 border-dashed border-slate-700 hover:border-indigo-500 rounded-xl cursor-pointer transition"
+          >
+            <div class="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center shrink-0">
+              <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+            </div>
+            <div class="min-w-0 flex-1">
+              <p id="selectedFileName" class="text-sm text-slate-200 font-medium truncate">クリックして音楽ファイルを選択</p>
+              <p class="text-xs text-slate-500 mt-0.5">ブラウザ内ストレージに音声データごと保存されます</p>
+            </div>
+            <input id="audioFileInput" type="file" accept="audio/*" class="hidden" />
+          </label>
+        </div>
+
+        <!-- 曲名・メモ + タグ -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="sm:col-span-2">
+            <label for="titleInput" class="block text-xs font-medium text-slate-400 mb-1.5">曲名・メモ（任意）</label>
+            <div class="relative">
+              <svg class="w-4 h-4 text-slate-500 absolute left-3.5 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              <input
+                id="titleInput"
+                type="text"
+                placeholder="例：作業用BGM / お気に入りの曲"
+                class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+              />
+            </div>
+          </div>
+          <div>
+            <label for="tagInput" class="block text-xs font-medium text-slate-400 mb-1.5">タグ（任意）</label>
+            <div class="relative">
+              <svg class="w-4 h-4 text-slate-500 absolute left-3.5 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+              </svg>
+              <input
+                id="tagInput"
+                type="text"
+                placeholder="例：Chill, 夜"
+                class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- アクションボタン -->
+        <div class="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 pt-2 border-t border-slate-800/70">
+          <button
+            id="sampleBtn"
+            type="button"
+            class="text-xs text-slate-400 hover:text-indigo-400 transition flex items-center justify-center sm:justify-start gap-1.5 py-1"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>サンプル曲を追加して試す</span>
+          </button>
+
+          <button
+            id="saveBtn"
+            type="button"
+            class="w-full sm:w-auto px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-[0.99] text-white text-sm font-semibold shadow-lg shadow-indigo-600/20 transition flex items-center justify-center gap-2"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <span>リストに保存する</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 検索・フィルターバー -->
+    <div class="flex flex-col sm:flex-row gap-2.5 mb-5">
+      <div class="relative flex-1">
+        <input
+          id="searchInput"
+          type="text"
+          placeholder="曲名・タグ・URLで検索..."
+          class="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+        />
+        <svg class="w-4 h-4 text-slate-500 absolute left-3.5 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+      </div>
+      <div class="relative sm:w-52">
+        <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-3 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+        </svg>
+        <select
+          id="serviceFilter"
+          class="w-full appearance-none bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-8 py-2.5 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        >
+          <option value="all">すべて表示</option>
+          <option value="localfile">保存ファイル</option>
+          <option value="youtube">YouTube</option>
+          <option value="spotify">Spotify</option>
+          <option value="soundcloud">SoundCloud</option>
+          <option value="audio">音声URL</option>
+          <option value="other">その他リンク</option>
+        </select>
+        <svg class="w-4 h-4 text-slate-500 absolute right-3 top-3 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+      </div>
+    </div>
+
+    <!-- 保存済みリスト表示エリア -->
+    <main id="musicList" class="space-y-4"></main>
+
+  </div>
+
+  <script>
+    // ローカルストレージの保存キー & IndexedDB設定
+    const STORAGE_KEY = 'my_music_links_canvas_v1';
+    const DB_NAME = 'MyMusicFilesDB';
+    const STORE_NAME = 'audioFiles';
+
+    // DOM要素の取得
+    const urlInput = document.getElementById('urlInput');
+    const titleInput = document.getElementById('titleInput');
+    const tagInput = document.getElementById('tagInput');
+    const pasteBtn = document.getElementById('pasteBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const sampleBtn = document.getElementById('sampleBtn');
+    const searchInput = document.getElementById('searchInput');
+    const serviceFilter = document.getElementById('serviceFilter');
+    const musicList = document.getElementById('musicList');
+    const countBadge = document.getElementById('countBadge');
+    const toast = document.getElementById('toast');
+
+    // ファイル保存・エクスポート用DOM要素
+    const tabUrlBtn = document.getElementById('tabUrlBtn');
+    const tabFileBtn = document.getElementById('tabFileBtn');
+    const urlPanel = document.getElementById('urlPanel');
+    const filePanel = document.getElementById('filePanel');
+    const audioFileInput = document.getElementById('audioFileInput');
+    const selectedFileName = document.getElementById('selectedFileName');
+    const exportBtn = document.getElementById('exportBtn');
+    const importBtn = document.getElementById('importBtn');
+    const importFileInput = document.getElementById('importFileInput');
+
+    let currentMode = 'url'; // 'url' または 'file'
+    let toastTimer = null;
+    const activeObjectUrls = new Map();
+
+    // IndexedDBを開く関数（音声ファイル本体をブラウザに保存するため）
+    function openAudioDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, 1);
+        req.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            db.createObjectStore(STORE_NAME);
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    // IndexedDBに音声Blobを保存
+    async function saveAudioBlob(id, file) {
+      const db = await openAudioDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).put(file, id);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    // IndexedDBから音声Blobを取得
+    async function getAudioBlob(id) {
+      const db = await openAudioDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const req = tx.objectStore(STORE_NAME).get(id);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    // IndexedDBから音声Blobを削除
+    async function deleteAudioBlob(id) {
+      try {
+        const db = await openAudioDB();
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).delete(id);
+      } catch (e) {
+        console.error('DB削除エラー:', e);
+      }
+    }
+
+    // 画面右下に通知を表示する関数
+    function showToast(message, type = 'info') {
+      clearTimeout(toastTimer);
+      toast.textContent = message;
+      toast.className = 'fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium transition-all duration-300';
+
+      if (type === 'error') {
+        toast.classList.add('bg-rose-950/95', 'border-rose-700', 'text-rose-200');
+      } else if (type === 'success') {
+        toast.classList.add('bg-emerald-950/95', 'border-emerald-700', 'text-emerald-200');
+      } else {
+        toast.classList.add('bg-slate-800/95', 'border-slate-600', 'text-slate-100');
+      }
+
+      toast.classList.remove('hidden');
+      toastTimer = setTimeout(() => {
+        toast.classList.add('hidden');
+      }, 3000);
+    }
+
+    // サービス別のアイコンSVGを取得するヘルパー
+    function getServiceIconSvg(service) {
+      switch (service) {
+        case 'youtube':
+          return `<svg class="w-4 h-4 text-red-400 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>`;
+        case 'spotify':
+          return `<svg class="w-4 h-4 text-emerald-400 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>`;
+        case 'soundcloud':
+          return `<svg class="w-4 h-4 text-orange-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>`;
+        case 'localfile':
+          return `<svg class="w-4 h-4 text-purple-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg>`;
+        case 'audio':
+          return `<svg class="w-4 h-4 text-sky-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>`;
+        default:
+          return `<svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>`;
+      }
+    }
+
+    // URLを解析してサービス種別と埋め込み情報を返す
+    function parseMusicUrl(rawUrl, isLocalFile = false) {
+      if (isLocalFile) {
+        return {
+          service: 'localfile',
+          label: '保存ファイル',
+          badgeClass: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
+          iconBgClass: 'bg-purple-500/15 border-purple-500/30',
+          embedType: 'localfile'
+        };
+      }
+      try {
+        const u = new URL(rawUrl);
+        const host = u.hostname.toLowerCase();
+
+        // 1. YouTube / YouTube Music
+        if (host.includes('youtube.com') || host.includes('youtu.be')) {
+          let videoId = '';
+          if (host.includes('youtu.be')) {
+            videoId = u.pathname.replace('/', '').split('/')[0];
+          } else if (u.pathname.startsWith('/shorts/')) {
+            videoId = u.pathname.split('/')[2] || '';
+          } else {
+            videoId = u.searchParams.get('v') || '';
+          }
+
+          if (videoId) {
+            return {
+              service: 'youtube',
+              label: 'YouTube',
+              badgeClass: 'bg-red-500/15 text-red-400 border-red-500/30',
+              iconBgClass: 'bg-red-500/15 border-red-500/30',
+              embedType: 'iframe',
+              embedUrl: `https://www.youtube.com/embed/${videoId}`,
+              height: 215
+            };
+          }
+        }
+
+        // 2. Spotify (track / album / playlist)
+        if (host.includes('open.spotify.com')) {
+          const parts = u.pathname.split('/').filter(Boolean);
+          const types = ['track', 'album', 'playlist', 'episode'];
+          const typeIndex = parts.findIndex(p => types.includes(p));
+          if (typeIndex !== -1 && parts[typeIndex + 1]) {
+            const kind = parts[typeIndex];
+            const id = parts[typeIndex + 1];
+            return {
+              service: 'spotify',
+              label: 'Spotify',
+              badgeClass: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+              iconBgClass: 'bg-emerald-500/15 border-emerald-500/30',
+              embedType: 'iframe',
+              embedUrl: `https://open.spotify.com/embed/${kind}/${id}`,
+              height: kind === 'track' ? 152 : 352
+            };
+          }
+        }
+
+        // 3. SoundCloud
+        if (host.includes('soundcloud.com')) {
+          const encoded = encodeURIComponent(rawUrl);
+          return {
+            service: 'soundcloud',
+            label: 'SoundCloud',
+            badgeClass: 'bg-orange-500/15 text-orange-400 border-orange-500/30',
+            iconBgClass: 'bg-orange-500/15 border-orange-500/30',
+            embedType: 'iframe',
+            embedUrl: `https://w.soundcloud.com/player/?url=${encoded}&color=%236366f1&auto_play=false&hide_related=true&show_comments=false`,
+            height: 166
+          };
+        }
+
+        // 4. 直接の音声ファイル (.mp3, .wav, .ogg, .m4a)
+        if (/\.(mp3|wav|ogg|m4a|aac)(\?.*)?$/i.test(u.pathname)) {
+          return {
+            service: 'audio',
+            label: 'Audio URL',
+            badgeClass: 'bg-sky-500/15 text-sky-400 border-sky-500/30',
+            iconBgClass: 'bg-sky-500/15 border-sky-500/30',
+            embedType: 'audio',
+            embedUrl: rawUrl
+          };
+        }
+
+        // 5. その他の音楽リンク
+        return {
+          service: 'other',
+          label: 'Link',
+          badgeClass: 'bg-slate-700/50 text-slate-300 border-slate-600',
+          iconBgClass: 'bg-slate-800 border-slate-700',
+          embedType: 'link',
+          embedUrl: rawUrl
+        };
+      } catch {
+        return null;
+      }
+    }
+
+    // データの読み込み
+    function loadItems() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch (e) {
+        console.error('読み込みエラー:', e);
+        return [];
+      }
+    }
+
+    // データの保存
+    function saveItems(items) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+      } catch (e) {
+        showToast('ブラウザへの保存に失敗しました', 'error');
+      }
+    }
+
+    // HTMLエスケープ（XSS対策）
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // URLコピー用フォールバック関数
+    function copyTextToClipboard(text) {
+      const tempInput = document.createElement('textarea');
+      tempInput.value = text;
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      try {
+        document.execCommand('copy');
+        showToast('URLをコピーしました', 'success');
+      } catch {
+        showToast('コピーに失敗しました', 'error');
+      }
+      document.body.removeChild(tempInput);
+    }
+
+    // リストの描画
+    async function renderList() {
+      const items = loadItems();
+      const keyword = searchInput.value.trim().toLowerCase();
+      const filter = serviceFilter.value;
+
+      countBadge.textContent = items.length;
+
+      const filtered = items.filter(item => {
+        const parsed = parseMusicUrl(item.url, item.isLocalFile);
+        const service = parsed ? parsed.service : 'other';
+        if (filter !== 'all' && service !== filter) return false;
+
+        if (!keyword) return true;
+        const targetText = `${item.title} ${item.tag} ${item.url || ''}`.toLowerCase();
+        return targetText.includes(keyword);
+      });
+
+      musicList.innerHTML = '';
+
+      if (filtered.length === 0) {
+        musicList.innerHTML = `
+          <div class="text-center py-12 px-4 bg-slate-900/40 border border-dashed border-slate-800 rounded-2xl">
+            <div class="w-12 h-12 rounded-2xl bg-slate-800/80 flex items-center justify-center mx-auto mb-3 text-slate-400">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+              </svg>
+            </div>
+            <p class="text-slate-300 text-sm font-medium mb-1">表示できる音楽がありません</p>
+            <p class="text-slate-500 text-xs">上のフォームからURLを貼り付けるか、音楽ファイルを選択して保存してください</p>
+          </div>
+        `;
+        return;
+      }
+
+      for (const item of filtered) {
+        const parsed = parseMusicUrl(item.url, item.isLocalFile) || {
+          service: 'other',
+          label: 'Link',
+          badgeClass: 'bg-slate-700/50 text-slate-300 border-slate-600',
+          iconBgClass: 'bg-slate-800 border-slate-700',
+          embedType: 'link',
+          embedUrl: item.url
+        };
+
+        const card = document.createElement('article');
+        card.className = 'bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 sm:p-5 shadow-md transition';
+
+        // プレイヤー部分のHTML生成
+        let playerHtml = '';
+        if (parsed.embedType === 'localfile') {
+          let blobUrl = activeObjectUrls.get(item.id);
+          if (!blobUrl) {
+            const blob = await getAudioBlob(item.id);
+            if (blob) {
+              blobUrl = URL.createObjectURL(blob);
+              activeObjectUrls.set(item.id, blobUrl);
+            }
+          }
+          if (blobUrl) {
+            playerHtml = `
+              <div class="mt-3.5 p-3 rounded-xl bg-slate-950 border border-slate-800">
+                <audio controls preload="metadata" src="${blobUrl}" class="w-full"></audio>
+              </div>
+            `;
+          } else {
+            playerHtml = `
+              <div class="mt-3.5 p-3 rounded-xl bg-slate-950 border border-rose-900/40 text-xs text-rose-300">
+                音声データが見つかりませんでした（別ブラウザで読み込んだ場合など）
+              </div>
+            `;
+          }
+        } else if (parsed.embedType === 'iframe') {
+          playerHtml = `
+            <div class="mt-3.5 rounded-xl overflow-hidden bg-slate-950 border border-slate-800">
+              <iframe
+                src="${escapeHtml(parsed.embedUrl)}"
+                width="100%"
+                height="${parsed.height}"
+                frameborder="0"
+                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                loading="lazy"
+                class="block w-full"
+              ></iframe>
+            </div>
+          `;
+        } else if (parsed.embedType === 'audio') {
+          playerHtml = `
+            <div class="mt-3.5 p-3 rounded-xl bg-slate-950 border border-slate-800">
+              <audio controls preload="none" src="${escapeHtml(parsed.embedUrl)}" class="w-full"></audio>
+            </div>
+          `;
+        } else {
+          playerHtml = `
+            <div class="mt-3.5 p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-3">
+              <span class="text-xs text-slate-400 truncate">${escapeHtml(item.url)}</span>
+              <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer" class="shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600/30 border border-indigo-500/30 transition flex items-center gap-1">
+                <span>開く</span>
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
+            </div>
+          `;
+        }
+
+        const tagHtml = item.tag
+          ? `<span class="text-xs px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700/80">#${escapeHtml(item.tag)}</span>`
+          : '';
+
+        card.innerHTML = `
+          <div class="flex items-start justify-between gap-3">
+            <!-- 左側：サービスアイコン ＋ タイトル・メタ情報 -->
+            <div class="flex items-start gap-3 min-w-0 flex-1">
+              <div class="w-9 h-9 rounded-xl border ${parsed.iconBgClass} flex items-center justify-center shrink-0 mt-0.5">
+                ${getServiceIconSvg(parsed.service)}
+              </div>
+              <div class="min-w-0 flex-1">
+                <h2 class="text-base font-semibold text-white truncate leading-snug">
+                  ${escapeHtml(item.title || '無題の音楽リンク')}
+                </h2>
+                <div class="flex flex-wrap items-center gap-2 mt-1">
+                  <span class="text-[11px] font-semibold px-2 py-0.5 rounded-md border ${parsed.badgeClass}">
+                    ${parsed.label}
+                  </span>
+                  ${tagHtml}
+                  <span class="text-[11px] text-slate-500">${escapeHtml(item.createdAt || '')}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 右側：操作ボタン（ラベル付きで分かりやすく配置） -->
+            <div class="flex items-center gap-1.5 shrink-0">
+              ${!item.isLocalFile ? `
+              <button
+                type="button"
+                data-action="convert"
+                class="px-2.5 py-1.5 rounded-lg bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-xs text-purple-300 hover:text-purple-200 transition flex items-center gap-1"
+                title="音声ファイルとして取り込み・録音保存"
+              >
+                <svg class="w-3.5 h-3.5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+                <span class="hidden sm:inline">音声化</span>
+              </button>
+              <button
+                type="button"
+                data-action="copy"
+                class="px-2.5 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 text-xs text-slate-300 hover:text-white transition flex items-center gap-1"
+                title="リンクをコピー"
+              >
+                <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                <span class="hidden sm:inline">コピー</span>
+              </button>
+              ` : `
+              <button
+                type="button"
+                data-action="download"
+                class="px-2.5 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 text-xs text-slate-300 hover:text-white transition flex items-center gap-1"
+                title="音声ファイルをダウンロード"
+              >
+                <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                <span class="hidden sm:inline">保存</span>
+              </button>
+              `}
+              <button
+                type="button"
+                data-action="delete"
+                class="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-950/50 border border-transparent hover:border-rose-800/50 transition"
+                title="削除"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          ${playerHtml}
+        `;
+
+        // コピーボタンイベント
+        const copyBtn = card.querySelector('[data-action="copy"]');
+        if (copyBtn) {
+          copyBtn.addEventListener('click', () => {
+            copyTextToClipboard(item.url);
+          });
+        }
+
+        // 音声ファイルへ変換・保存ボタンイベント
+        const convertBtn = card.querySelector('[data-action="convert"]');
+        if (convertBtn) {
+          convertBtn.addEventListener('click', () => {
+            openAudioConvertModal(item);
+          });
+        }
+
+        // 音声ファイルダウンロードボタンイベント
+        const downloadBtn = card.querySelector('[data-action="download"]');
+        if (downloadBtn) {
+          downloadBtn.addEventListener('click', async () => {
+            const blob = await getAudioBlob(item.id);
+            if (!blob) {
+              showToast('音声ファイルが見つかりません', 'error');
+              return;
+            }
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = item.fileName || `${item.title}.mp3`;
+            a.click();
+            URL.revokeObjectURL(url);
+          });
+        }
+
+        // 削除ボタンイベント
+        card.querySelector('[data-action="delete"]').addEventListener('click', async () => {
+          if (item.isLocalFile) {
+            await deleteAudioBlob(item.id);
+            if (activeObjectUrls.has(item.id)) {
+              URL.revokeObjectURL(activeObjectUrls.get(item.id));
+              activeObjectUrls.delete(item.id);
+            }
+          }
+          const next = loadItems().filter(x => x.id !== item.id);
+          saveItems(next);
+          renderList();
+          showToast('リストから削除しました');
+        });
+
+        musicList.appendChild(card);
+      }
+    }
+
+    // 保存処理（URLリンク & 音楽ファイル両対応）
+    async function handleSave() {
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`;
+      const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+      if (currentMode === 'file') {
+        const file = audioFileInput.files && audioFileInput.files[0];
+        if (!file) {
+          showToast('保存する音楽ファイルを選択してください', 'error');
+          return;
+        }
+        try {
+          await saveAudioBlob(id, file);
+          const defaultName = file.name.replace(/\.[^/.]+$/, '');
+          const newItem = {
+            id,
+            isLocalFile: true,
+            fileName: file.name,
+            url: '',
+            title: titleInput.value.trim() || defaultName,
+            tag: tagInput.value.trim(),
+            createdAt: dateStr
+          };
+          const items = loadItems();
+          items.unshift(newItem);
+          saveItems(items);
+
+          audioFileInput.value = '';
+          selectedFileName.textContent = 'クリックして音楽ファイルを選択';
+          titleInput.value = '';
+          tagInput.value = '';
+
+          renderList();
+          showToast('音楽ファイルを保存しました！', 'success');
+        } catch (e) {
+          showToast('ファイルの保存に失敗しました（容量上限など）', 'error');
+        }
+        return;
+      }
+
+      // URL保存モード
+      const url = urlInput.value.trim();
+      if (!url) {
+        showToast('音楽のURLを入力してください', 'error');
+        urlInput.focus();
+        return;
+      }
+
+      const parsed = parseMusicUrl(url);
+      if (!parsed) {
+        showToast('有効なURL（http:// または https://）を入力してください', 'error');
+        urlInput.focus();
+        return;
+      }
+
+      const newItem = {
+        id,
+        isLocalFile: false,
+        url,
+        title: titleInput.value.trim() || `${parsed.label} の曲`,
+        tag: tagInput.value.trim(),
+        createdAt: dateStr
+      };
+
+      const items = loadItems();
+      items.unshift(newItem);
+      saveItems(items);
+
+      urlInput.value = '';
+      titleInput.value = '';
+      tagInput.value = '';
+
+      renderList();
+      showToast('音楽リンクを保存しました！', 'success');
+    }
+
+    // タブ切り替えイベント
+    tabUrlBtn.addEventListener('click', () => {
+      currentMode = 'url';
+      tabUrlBtn.className = 'py-2.5 px-3 rounded-lg text-xs sm:text-sm font-medium bg-indigo-600 text-white shadow-sm transition flex items-center justify-center gap-2';
+      tabFileBtn.className = 'py-2.5 px-3 rounded-lg text-xs sm:text-sm font-medium text-slate-400 hover:text-white transition flex items-center justify-center gap-2';
+      urlPanel.classList.remove('hidden');
+      filePanel.classList.add('hidden');
+    });
+
+    tabFileBtn.addEventListener('click', () => {
+      currentMode = 'file';
+      tabFileBtn.className = 'py-2.5 px-3 rounded-lg text-xs sm:text-sm font-medium bg-indigo-600 text-white shadow-sm transition flex items-center justify-center gap-2';
+      tabUrlBtn.className = 'py-2.5 px-3 rounded-lg text-xs sm:text-sm font-medium text-slate-400 hover:text-white transition flex items-center justify-center gap-2';
+      filePanel.classList.remove('hidden');
+      urlPanel.classList.add('hidden');
+    });
+
+    // 音声ファイル選択時の表示更新
+    audioFileInput.addEventListener('change', () => {
+      const file = audioFileInput.files && audioFileInput.files[0];
+      if (file) {
+        selectedFileName.textContent = `選択中: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+        if (!titleInput.value.trim()) {
+          titleInput.value = file.name.replace(/\.[^/.]+$/, '');
+        }
+      }
+    });
+
+    // JSONファイルとして書き出し（バックアップ保存）
+    exportBtn.addEventListener('click', () => {
+      const items = loadItems();
+      if (items.length === 0) {
+        showToast('書き出すデータがありません', 'error');
+        return;
+      }
+      const exportData = items.filter(item => !item.isLocalFile);
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const today = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `music_links_${today}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('JSONファイルとして書き出しました', 'success');
+    });
+
+    // JSONファイルから読み込み（復元）
+    importBtn.addEventListener('click', () => {
+      importFileInput.click();
+    });
+
+    importFileInput.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const imported = JSON.parse(reader.result);
+          if (!Array.isArray(imported)) throw new Error('Invalid format');
+          const current = loadItems();
+          const existingIds = new Set(current.map(x => x.id));
+          const merged = [...imported.filter(x => x.url && !existingIds.has(x.id)), ...current];
+          saveItems(merged);
+          renderList();
+          showToast('ファイルからリンクを読み込みました！', 'success');
+        } catch {
+          showToast('JSONファイルの形式が正しくありません', 'error');
+        }
+        importFileInput.value = '';
+      };
+      reader.readAsText(file);
+    });
+
+    // クリップボードから貼り付け
+    pasteBtn.addEventListener('click', async () => {
+      try {
+        if (navigator.clipboard && navigator.clipboard.readText) {
+          const text = await navigator.clipboard.readText();
+          if (text) {
+            urlInput.value = text.trim();
+            showToast('クリップボードから貼り付けました', 'success');
+            return;
+          }
+        }
+        urlInput.focus();
+        showToast('入力欄に長押しまたは Ctrl+V / Cmd+V で貼り付けてください');
+      } catch {
+        urlInput.focus();
+        showToast('ブラウザの制限により自動読み取りできません。手動で貼り付けてください');
+      }
+    });
+
+    // サンプルデータ追加
+    sampleBtn.addEventListener('click', () => {
+      const samples = [
+        {
+          id: 'sample_' + Date.now() + '_1',
+          url: 'https://www.youtube.com/watch?v=jfKfPfyJRdk',
+          title: 'lofi hip hop radio - beats to relax/study to',
+          tag: '作業用BGM',
+          createdAt: 'サンプル'
+        }
+      ];
+      const items = loadItems();
+      saveItems([...samples, ...items]);
+      renderList();
+      showToast('サンプルを追加しました', 'success');
+    });
+
+    // イベント登録
+    saveBtn.addEventListener('click', handleSave);
+    urlInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleSave();
+    });
+    searchInput.addEventListener('input', renderList);
+    serviceFilter.addEventListener('change', renderList);
+
+    // 初期表示
+    renderList();
+
+    // ==========================================
+    // リンクからの音声ファイル変換・録音保存機能
+    // ==========================================
+    const modalHtml = `
+      <div id="convertModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h3 class="text-base font-bold text-white flex items-center gap-2">
+                <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                </svg>
+                <span>音声ファイルとして保存</span>
+              </h3>
+              <p id="convertTargetTitle" class="text-xs text-slate-400 mt-1 truncate"></p>
+            </div>
+            <button id="closeConvertModalBtn" type="button" class="text-slate-400 hover:text-white p-1 rounded-lg">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 space-y-2 leading-relaxed">
+            <p class="font-semibold text-indigo-300">変換方法について</p>
+            <p>・<strong>音声直リンク（.mp3等）</strong>はそのまま音声データを取得して保存します。</p>
+            <p>・<strong>YouTube / Spotify等</strong>は仕様上URLから直接抜けないため、<strong>「タブ音声を録音してWAV保存」</strong>で再生音を音声ファイル化できます。</p>
+          </div>
+
+          <div id="directFetchBox" class="hidden">
+            <button id="directFetchBtn" type="button" class="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition flex items-center justify-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              <span>音声URLを直接ファイル化して保存</span>
+            </button>
+          </div>
+
+          <div class="border-t border-slate-800 pt-3 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-medium text-slate-300">再生音のキャプチャ録音（WAV変換）</span>
+              <span id="recTimer" class="text-xs font-mono text-rose-400 hidden">● 録音中 00:00</span>
+            </div>
+            <p class="text-[11px] text-slate-400">
+              ボタンを押したら共有画面で<strong>「このタブ」</strong>を選び、<strong>「タブの音声を共有」</strong>にチェックを入れて音楽を再生してください。
+            </p>
+            <div class="flex gap-2">
+              <button id="startRecBtn" type="button" class="flex-1 py-2.5 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-1.5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+                <span>録音を開始</span>
+              </button>
+              <button id="stopRecBtn" type="button" class="hidden flex-1 py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-1.5">
+                <span>停止してWAV保存</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    const convertModal = document.getElementById('convertModal');
+    const convertTargetTitle = document.getElementById('convertTargetTitle');
+    const closeConvertModalBtn = document.getElementById('closeConvertModalBtn');
+    const directFetchBox = document.getElementById('directFetchBox');
+    const directFetchBtn = document.getElementById('directFetchBtn');
+    const startRecBtn = document.getElementById('startRecBtn');
+    const stopRecBtn = document.getElementById('stopRecBtn');
+    const recTimer = document.getElementById('recTimer');
+
+    let currentConvertItem = null;
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let captureStream = null;
+    let recInterval = null;
+    let recSeconds = 0;
+
+    function openAudioConvertModal(item) {
+      currentConvertItem = item;
+      convertTargetTitle.textContent = `対象: ${item.title || item.url}`;
+      const parsed = parseMusicUrl(item.url);
+      if (parsed && (parsed.service === 'audio' || parsed.service === 'other')) {
+        directFetchBox.classList.remove('hidden');
+      } else {
+        directFetchBox.classList.add('hidden');
+      }
+      convertModal.classList.remove('hidden');
+    }
+
+    function closeAudioConvertModal() {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+      }
+      convertModal.classList.add('hidden');
+    }
+
+    closeConvertModalBtn.addEventListener('click', closeAudioConvertModal);
+
+    // 音声直リンクからの直接取得＆保存
+    directFetchBtn.addEventListener('click', async () => {
+      if (!currentConvertItem) return;
+      try {
+        showToast('音声データを取得しています...');
+        const res = await fetch(currentConvertItem.url);
+        if (!res.ok) throw new Error('Fetch failed');
+        const blob = await res.blob();
+        if (!blob.type.startsWith('audio/') && blob.size < 1000) {
+          throw new Error('Not audio');
+        }
+        await saveConvertedAudioBlob(blob, `${currentConvertItem.title || 'audio'}.mp3`);
+        closeAudioConvertModal();
+      } catch {
+        showToast('相手サーバーの制限（CORS）により直接取得できませんでした。録音保存をお試しください。', 'error');
+      }
+    });
+
+    // Blobをリストの「保存ファイル」として追加し、同時にファイルダウンロードする共通処理
+    async function saveConvertedAudioBlob(blob, fileName) {
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`;
+      const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+      await saveAudioBlob(id, blob);
+      const newItem = {
+        id,
+        isLocalFile: true,
+        fileName,
+        url: '',
+        title: `${currentConvertItem?.title || '録音音声'} (音声ファイル)`,
+        tag: currentConvertItem?.tag || '変換済み',
+        createdAt: dateStr
+      };
+      const items = loadItems();
+      items.unshift(newItem);
+      saveItems(items);
+      renderList();
+
+      // 端末にも自動ダウンロード
+      const dlUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = dlUrl;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(dlUrl);
+
+      showToast('音声ファイルとしてリスト＆端末に保存しました！', 'success');
+    }
+
+    // WebM等の録音データをWAV形式に変換するユーティリティ
+    async function convertBlobToWav(webmBlob) {
+      const arrayBuffer = await webmBlob.arrayBuffer();
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+      const numChannels = audioBuffer.numberOfChannels;
+      const sampleRate = audioBuffer.sampleRate;
+      const length = audioBuffer.length * numChannels * 2 + 44;
+      const buffer = new ArrayBuffer(length);
+      const view = new DataView(buffer);
+
+      const writeString = (offset, str) => {
+        for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+      };
+
+      writeString(0, 'RIFF');
+      view.setUint32(4, 36 + audioBuffer.length * numChannels * 2, true);
+      writeString(8, 'WAVE');
+      writeString(12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, numChannels, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * numChannels * 2, true);
+      view.setUint16(32, numChannels * 2, true);
+      view.setUint16(34, 16, true);
+      writeString(36, 'data');
+      view.setUint32(40, audioBuffer.length * numChannels * 2, true);
+
+      let offset = 44;
+      for (let i = 0; i < audioBuffer.length; i++) {
+        for (let ch = 0; ch < numChannels; ch++) {
+          let sample = audioBuffer.getChannelData(ch)[i];
+          sample = Math.max(-1, Math.min(1, sample));
+          view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+          offset += 2;
+        }
+      }
+      await audioCtx.close();
+      return new Blob([buffer], { type: 'audio/wav' });
+    }
+
+    // タブ音声のキャプチャ録音開始
+    startRecBtn.addEventListener('click', async () => {
+      try {
+        captureStream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: true
+        });
+        const audioTracks = captureStream.getAudioTracks();
+        if (audioTracks.length === 0) {
+          captureStream.getTracks().forEach(t => t.stop());
+          showToast('音声が共有されていません。「タブの音声を共有」をオンにしてください。', 'error');
+          return;
+        }
+
+        const audioOnlyStream = new MediaStream(audioTracks);
+        recordedChunks = [];
+        mediaRecorder = new MediaRecorder(audioOnlyStream);
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) recordedChunks.push(e.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+          clearInterval(recInterval);
+          recTimer.classList.add('hidden');
+          startRecBtn.classList.remove('hidden');
+          stopRecBtn.classList.add('hidden');
+
+          if (captureStream) {
+            captureStream.getTracks().forEach(t => t.stop());
+          }
+
+          if (recordedChunks.length > 0) {
+            showToast('WAV音声ファイルに変換中...');
+            try {
+              const rawBlob = new Blob(recordedChunks, { type: 'audio/webm' });
+              const wavBlob = await convertBlobToWav(rawBlob);
+              const safeTitle = (currentConvertItem?.title || 'recorded_audio').replace(/[\\/:*?"<>|]/g, '_');
+              await saveConvertedAudioBlob(wavBlob, `${safeTitle}.wav`);
+              closeAudioConvertModal();
+            } catch {
+              showToast('音声変換に失敗しました', 'error');
+            }
+          }
+        };
+
+        mediaRecorder.start();
+        recSeconds = 0;
+        recTimer.textContent = '● 録音中 00:00';
+        recTimer.classList.remove('hidden');
+        startRecBtn.classList.add('hidden');
+        stopRecBtn.classList.remove('hidden');
+
+        recInterval = setInterval(() => {
+          recSeconds++;
+          const m = String(Math.floor(recSeconds / 60)).padStart(2, '0');
+          const s = String(recSeconds % 60).padStart(2, '0');
+          recTimer.textContent = `● 録音中 ${m}:${s}`;
+        }, 1000);
+
+        showToast('録音を開始しました！対象の曲を再生してください', 'success');
+      } catch {
+        showToast('画面・音声の共有がキャンセルされました', 'error');
+      }
+    });
+
+    // 録音停止
+    stopRecBtn.addEventListener('click', () => {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+      }
+    });
+  </script>
+</body>
+</html>
